@@ -1,0 +1,77 @@
+name: Build
+
+permissions:
+  "contents": "write"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Test
+        run: dotnet test --no-restore --verbosity normal
+      - name: Publish
+        run: |
+          dotnet publish Twitch-Developer-Announcement-Email -c Release -r linux-x64 --sc -p:PublishAot=true
+          dotnet publish Twitch-Developer-Announcement-Webhook -c Release -r linux-x64 --sc -p:PublishSingleFile=true
+          dotnet publish Twitch-Developer-Changelog-Email -c Release -r linux-x64 --sc -p:PublishAot=true
+          dotnet publish Twitch-Developer-Changelog-Webhook -c Release -r linux-x64 --sc -p:PublishSingleFile=true
+          mkdir release-artifacts
+      - name: Compress
+        run: |
+          zip -r release-artifacts/Twitch-Developer-Announcement-Webhook-linux-x64.zip Twitch-Developer-Announcement-Webhook/bin/Release/net10.0/linux-x64/publish/*
+          zip -r release-artifacts/Twitch-Developer-Announcement-Email-linux-x64.zip Twitch-Developer-Announcement-Email/bin/Release/net10.0/linux-x64/publish/*
+          zip -r release-artifacts/Twitch-Developer-Changelog-Webhook-linux-x64.zip Twitch-Developer-Changelog-Webhook/bin/Release/net10.0/linux-x64/publish/*
+          zip -r release-artifacts/Twitch-Developer-Changelog-Email-linux-x64.zip Twitch-Developer-Changelog-Email/bin/Release/net10.0/linux-x64/publish/*
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Twitch-Developer-Notifier
+          path: release-artifacts
+  create-release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # allows for tags access
+      - uses: actions/download-artifact@v8
+        name: Download artifact
+        with:
+          name: Twitch-Developer-Notifier
+          path: release-artifacts/
+      - name: Create release
+        uses: ncipollo/release-action@v1.21.0
+        with:
+          replacesArtifacts: true
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          artifacts: "release-artifacts/*"
+          body: ${{ github.event.head_commit.message }}
+          prerelease: true
+          name: Nightly Release
+          tag: nightly-build
+      - name: Update nightly-build tag
+        run: |
+          git tag -f nightly-build
+          git push -f origin nightly-build
