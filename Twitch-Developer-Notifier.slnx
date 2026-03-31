@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Twitch-Developer-Announcement-Email/Twitch-Developer-Announcement-Email.csproj" />
+  <Project Path="Twitch-Developer-Announcement-Webhook/Twitch-Developer-Announcement-Webhook.csproj" />
+  <Project Path="Twitch-Developer-Changelog-Email/Twitch-Developer-Changelog-Email.csproj" />
+  <Project Path="Twitch-Developer-Changelog-Webhook/Twitch-Developer-Changelog-Webhook.csproj" />
+  <Project Path="Twitch-Developer-Common/Twitch-Developer-Common.csproj" />
+</Solution>
