@@ -1,4 +1,5 @@
-﻿using System.Xml;
+﻿using System.Globalization;
+using System.Xml;
 using System.Text;
 using System.Text.Json;
 using TwitchDeveloperCommon;
@@ -21,8 +22,7 @@ namespace TwitchDeveloperChangelogWebhook
             if (channel is null) return;
             string? lastBuildDateStr = (from node in channel.ChildNodes.OfType<XmlNode>() where node.Name == "lastBuildDate" select node.InnerText).FirstOrDefault();
             //DateTime? lastBuildDate = lastBuildDateStr is null ? null : DateTime.Parse(lastBuildDateStr);
-            List<XmlNode> changelogEntries = [];
-            changelogEntries.AddRange(channel.ChildNodes.OfType<XmlNode>().Where(node => node.Name == "item"));
+            List<XmlNode> changelogEntries = [.. channel.ChildNodes.OfType<XmlNode>().Where(node => node.Name == "item")];
             var fileNeedsUpdate = true;
             if (File.Exists("lastUpdatedValue"))
             {
@@ -57,7 +57,7 @@ namespace TwitchDeveloperChangelogWebhook
                                     description = ConvertHtml(node.InnerText);
                                     break;
                                 case "pubDate":
-                                    if (DateTime.TryParse(node.InnerText, out var pubDate))
+                                    if (DateTime.TryParse(node.InnerText, CultureInfo.InvariantCulture, out var pubDate))
                                     {
                                         pubDateUnix = ((DateTimeOffset)pubDate).ToUnixTimeSeconds();
                                     }
@@ -83,11 +83,20 @@ namespace TwitchDeveloperChangelogWebhook
         {
             var config = new ReverseMarkdown.Config
             {
-                UnknownTags = ReverseMarkdown.Config.UnknownTagsOption.Bypass,
+                Tags =
+                {
+                    Unknown = ReverseMarkdown.Config.UnknownTagsOption.Bypass
+                },
                 GithubFlavored = false,
-                RemoveComments = true,
-                OutputLineEnding = "\n",
-                SmartHrefHandling = true
+                Formatting =
+                {
+                    RemoveComments = true,
+                    OutputLineEnding = "\n"
+                },
+                Links =
+                {
+                    SmartHref = true
+                }
             };
             var converter = new ReverseMarkdown.Converter(config);
             return converter.Convert(html);
